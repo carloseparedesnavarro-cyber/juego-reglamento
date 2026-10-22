@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-950">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>El Creador de Leyes del Salón</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Canvas Confetti CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Custom Tailwind Configuration -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                        },
+                        accent: {
+                            400: '#fbbf24',
+                            500: '#f59e0b',
+                            600: '#d97706',
+                        },
+                        hero: {
+                            purple: '#a855f7',
+                            indigo: '#6366f1',
+                            blue: '#3b82f6',
+                        }
+                    },
+                    animation: {
+                        'bounce-short': 'bounceShort 0.4s ease-in-out 1',
+                        'pulse-glow': 'pulseGlow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                    },
+                    keyframes: {
+                        bounceShort: {
+                            '0%, 100%': { transform: 'scale(1)' },
+                            '50%': { transform: 'scale(0.96)' },
+                        },
+                        pulseGlow: {
+                            '0%, 100%': { opacity: 0.8, filter: 'drop-shadow(0 0 8px rgba(168,85,247,0.5))' },
+                            '50%': { opacity: 1, filter: 'drop-shadow(0 0 16px rgba(168,85,247,0.8))' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800;900&display=swap');
+        
+        * {
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background-color: #090d16;
+            color: #f8fafc;
+            user-select: none;
+            overflow-x: hidden;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(30, 41, 59, 0.5);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 9999px;
+        }
+
+        /* Touch Button Click Effect */
+        .touch-btn {
+            transition: transform 0.1s ease, filter 0.15s ease, background-color 0.15s ease;
+        }
+        .touch-btn:active {
+            transform: scale(0.96);
+        }
+
+        /* Smooth tab transition */
+        .screen-container {
+            transition: opacity 0.25s ease-in-out, transform 0.25s ease-in-out;
+        }
+
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white !important; color: black !important; }
+            .print-card { border: 2px solid #000 !important; background: white !important; color: black !important; box-shadow: none !important; }
+        }
+    </style>
+</head>
+<body class="h-full flex flex-col justify-between max-w-md mx-auto min-h-screen border-x border-slate-800/80 shadow-2xl relative">
+
+    <!-- Sound Engine (Web Audio API) -->
+    <script>
+        class MobileSoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playTap() {
+                if (this.muted) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(350, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(700, this.ctx.currentTime + 0.04);
+                gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.04);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.04);
+            }
+
+            playCorrect() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
+                notes.forEach((freq, i) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + i * 0.07);
+                    gain.gain.setValueAtTime(0.12, now + i * 0.07);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.07 + 0.2);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + i * 0.07);
+                    osc.stop(now + i * 0.07 + 0.2);
+                });
+            }
+
+            playWrong() {
+                if (this.muted) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(220, now);
+                osc.frequency.setValueAtTime(170, now + 0.12);
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            }
+
+            playVictory() {
+                if (this.muted) return;
+                this.init();
+                const notes = [440, 554.37, 659.25, 880, 1046.50];
+                notes.forEach((freq, i) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    const now = this.ctx.currentTime + (i * 0.1);
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.35);
+                });
+            }
+        }
+        const snd = new MobileSoundEngine();
+    </script>
+
+    <!-- Top Sticky Navigation Bar -->
+    <header class="no-print sticky top-0 z-50 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-2.5 cursor-pointer" onclick="confirmReset()">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-purple-600 flex items-center justify-center shadow-md shadow-purple-950/50">
+                <i data-lucide="scroll" class="w-5 h-5 text-slate-950"></i>
+            </div>
+            <div>
+                <h1 class="text-sm font-black tracking-tight leading-none bg-gradient-to-r from-amber-400 via-purple-300 to-sky-400 bg-clip-text text-transparent">
+                    Creador de Leyes
+                </h1>
+                <span class="text-[10px] text-slate-400 font-bold block mt-0.5">5.º Primaria • Edición Móvil</span>
+            </div>
+        </div>
+
+        <!-- Dynamic Score & Sound Toggle -->
+        <div id="nav-info" class="flex items-center gap-2">
+            <div id="score-badge" class="hidden items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 border border-amber-500/30 rounded-full">
+                <i data-lucide="award" class="w-3.5 h-3.5 text-amber-400"></i>
+                <span id="score-val" class="text-xs font-black text-amber-400">0</span>
+            </div>
+            <button onclick="toggleAudio()" id="sound-btn" class="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700/80 flex items-center justify-center text-slate-300 active:scale-95 transition">
+                <i data-lucide="volume-2" class="w-4 h-4"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main View Area (Responsive Container) -->
+    <main class="flex-1 flex flex-col p-4 justify-center">
+
+        <!-- SCREEN 1: WELCOME & PLAYER PROFILE -->
+        <section id="screen-welcome" class="space-y-5 my-auto">
+            <div class="text-center space-y-2">
+                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-purple-500/15 text-purple-300 border border-purple-500/30">
+                    <i data-lucide="shield-check" class="w-3.5 h-3.5 text-purple-400"></i> Misión de Convivencia
+                </span>
+                <h2 class="text-2xl font-black text-white leading-tight">
+                    ¡Aprende a Crear el <span class="bg-gradient-to-r from-amber-400 to-purple-400 bg-clip-text text-transparent">Reglamento del Salón</span>!
+                </h2>
+                <p class="text-xs text-slate-400 font-medium max-w-xs mx-auto leading-relaxed">
+                    Usa verbos en infinitivo, lenguaje positivo y propósitos claros para convertirte en Maestro Legislador.
+                </p>
+            </div>
+
+            <!-- Profile Customization Box -->
+            <div class="bg-slate-900/90 border border-slate-800/90 rounded-2xl p-4 shadow-xl space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-300 mb-2 text-center">Elige tu Avatar de Sabio:</label>
+                    <div id="avatar-grid" class="grid grid-cols-5 gap-2">
+                        <!-- Injected dynamically -->
+                    </div>
+                </div>
+
+                <div class="space-y-1.5">
+                    <label for="player-input-name" class="block text-xs font-bold text-slate-300">
+                        Tu Nombre o Equipo:
+                    </label>
+                    <div class="relative">
+                        <input type="text" id="player-input-name" maxlength="18" placeholder="Ej. Sofía / Los Sabios" 
+                            class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-3 pl-10 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm font-semibold">
+                        <i data-lucide="user" class="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5"></i>
+                    </div>
+                </div>
+
+                <button onclick="startGame()" class="touch-btn w-full py-3.5 px-4 bg-gradient-to-r from-amber-500 via-purple-600 to-indigo-600 text-slate-950 font-black text-sm rounded-xl shadow-lg shadow-purple-950/40 flex items-center justify-center gap-2">
+                    <span>¡COMENZAR LA AVENTURA!</span>
+                    <i data-lucide="play" class="w-4 h-4 fill-slate-950"></i>
+                </button>
+            </div>
+        </section>
+
+        <!-- SCREEN 2: TRIVIA / QUIZ LEVELS -->
+        <section id="screen-quiz" class="hidden space-y-4 my-auto">
+            <!-- Level Indicator Badge -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-3 flex items-center justify-between gap-2 shadow-lg">
+                <div class="flex items-center gap-2.5">
+                    <div id="lvl-icon-bg" class="w-8 h-8 rounded-lg bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400">
+                        <i data-lucide="zap" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                        <span id="lvl-num" class="text-[10px] font-extrabold text-amber-400 uppercase tracking-widest block">NIVEL 1 DE 4</span>
+                        <h3 id="lvl-title" class="text-xs font-black text-slate-200">El Filtro Positivo</h3>
+                    </div>
+                </div>
+                <!-- Mini Progress Meter -->
+                <div class="text-right space-y-1">
+                    <span id="quiz-step-text" class="text-[10px] font-bold text-slate-400 block">1 / 6</span>
+                    <div class="w-16 bg-slate-800 h-2 rounded-full overflow-hidden">
+                        <div id="quiz-progress-fill" class="bg-gradient-to-r from-amber-400 to-purple-500 h-full w-1/6 transition-all duration-300"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quiz Question Card -->
+            <div class="bg-slate-900 border border-slate-800/90 rounded-2xl p-4 shadow-xl space-y-3.5">
+                <p id="quiz-instruction" class="text-[11px] font-bold text-purple-400 uppercase tracking-wider">
+                    Instrucción del nivel
+                </p>
+                <h3 id="quiz-question-text" class="text-sm font-bold text-slate-100 leading-snug">
+                    Cargando desafío...
+                </h3>
+
+                <!-- Options List (Mobile Thumb Friendly) -->
+                <div id="quiz-options-list" class="space-y-2">
+                    <!-- Buttons injected -->
+                </div>
+
+                <!-- Pedagogical Feedback Pop-up Box -->
+                <div id="quiz-feedback-box" class="hidden p-3 rounded-xl border text-xs font-semibold flex items-start gap-2.5 animate-bounce-short">
+                    <i id="fb-icon" class="w-4 h-4 shrink-0 mt-0.5"></i>
+                    <div id="fb-text" class="leading-relaxed"></div>
+                </div>
+
+                <!-- Next Question Button -->
+                <button id="next-quiz-btn" onclick="nextQuestion()" class="hidden touch-btn w-full py-3 bg-purple-600 hover:bg-purple-500 text-white font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-md shadow-purple-950/40">
+                    <span>SIGUIENTE DESAFÍO</span>
+                    <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </section>
+
+        <!-- SCREEN 3: MOBILE RULE BUILDER (LABORATORY) -->
+        <section id="screen-builder" class="hidden space-y-3 my-auto">
+            <!-- Header -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 text-center space-y-1">
+                <span class="text-[10px] font-extrabold text-amber-400 uppercase tracking-wider">Nivel 4: Laboratorio Interactivo</span>
+                <h3 class="text-sm font-black text-slate-100">Crea tus Leyes para el Salón</h3>
+                <p class="text-[11px] text-slate-400">Combina los 3 bloques y presiona "Aprobar Ley".</p>
+            </div>
+
+            <!-- Step 1: Select Verb -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-2.5 space-y-1.5">
+                <span class="text-[11px] font-bold text-sky-400 flex items-center gap-1">
+                    <span class="w-4 h-4 rounded-full bg-sky-500/20 text-sky-400 text-[10px] flex items-center justify-center font-black">1</span>
+                    Verbo en Infinitivo (-ar, -er, -ir):
+                </span>
+                <div id="builder-verbs" class="flex gap-1.5 overflow-x-auto custom-scrollbar pb-1">
+                    <!-- Injected -->
+                </div>
+            </div>
+
+            <!-- Step 2: Select Action -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-2.5 space-y-1.5">
+                <span class="text-[11px] font-bold text-purple-400 flex items-center gap-1">
+                    <span class="w-4 h-4 rounded-full bg-purple-500/20 text-purple-400 text-[10px] flex items-center justify-center font-black">2</span>
+                    Comportamiento Positivo:
+                </span>
+                <div id="builder-actions" class="flex gap-1.5 overflow-x-auto custom-scrollbar pb-1">
+                    <!-- Injected -->
+                </div>
+            </div>
+
+            <!-- Step 3: Select Purpose -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-2.5 space-y-1.5">
+                <span class="text-[11px] font-bold text-amber-400 flex items-center gap-1">
+                    <span class="w-4 h-4 rounded-full bg-amber-500/20 text-amber-400 text-[10px] flex items-center justify-center font-black">3</span>
+                    Propósito (para que...):
+                </span>
+                <div id="builder-purposes" class="flex gap-1.5 overflow-x-auto custom-scrollbar pb-1">
+                    <!-- Injected -->
+                </div>
+            </div>
+
+            <!-- Live Card Preview -->
+            <div class="bg-gradient-to-br from-slate-900 via-purple-950/40 to-slate-900 border border-purple-500/30 rounded-xl p-3 space-y-2 text-center">
+                <span class="text-[10px] font-extrabold text-purple-300 uppercase">Vista Previa de tu Ley:</span>
+                <div class="p-2.5 bg-slate-950/80 border border-slate-800 rounded-lg min-h-[52px] flex items-center justify-center">
+                    <p id="builder-preview" class="text-xs font-bold text-amber-300 italic">
+                        Selecciona un verbo, una acción y un propósito.
+                    </p>
+                </div>
+
+                <div class="flex gap-2">
+                    <button id="add-rule-btn" onclick="saveCreatedRule()" disabled class="touch-btn flex-1 py-2.5 px-3 bg-gradient-to-r from-amber-500 to-purple-600 opacity-50 cursor-not-allowed text-slate-950 font-black text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-md">
+                        <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                        <span>Aprobar Ley (<span id="saved-count">0</span>/3)</span>
+                    </button>
+                    <button id="finish-game-btn" onclick="showFinalResults()" class="hidden touch-btn py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-md">
+                        <span>Ver Diploma</span>
+                        <i data-lucide="award" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- SCREEN 4: FINAL CONSTITUTION & CERTIFICATE -->
+        <section id="screen-summary" class="hidden space-y-4 my-auto">
+            <!-- Printable Certificate Badge -->
+            <div id="printable-area" class="print-card bg-slate-900 border-2 border-amber-500/60 rounded-2xl p-4 shadow-2xl space-y-3 relative overflow-hidden text-center">
+                
+                <div class="inline-flex p-2 bg-amber-500/10 border border-amber-500/30 rounded-xl text-amber-400 mb-0.5">
+                    <i data-lucide="award" class="w-8 h-8"></i>
+                </div>
+
+                <div>
+                    <span id="badge-title" class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                        MAESTRO LEGISLADOR DEL AULA
+                    </span>
+                    <h2 class="text-xl font-black bg-gradient-to-r from-amber-300 via-purple-300 to-sky-300 bg-clip-text text-transparent mt-1">
+                        Reglamento Oficial
+                    </h2>
+                </div>
+
+                <!-- User Details -->
+                <div class="bg-slate-950/70 border border-slate-800 p-2.5 rounded-xl flex items-center justify-between text-left">
+                    <div class="flex items-center gap-2">
+                        <span id="final-avatar" class="text-2xl">🧙‍♂️</span>
+                        <div>
+                            <span class="text-[10px] text-slate-400 block">Autoria del Alumno:</span>
+                            <span id="final-name" class="text-xs font-bold text-amber-300">Sabio</span>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-[10px] text-slate-400 block">Puntaje Final:</span>
+                        <span id="final-score" class="text-sm font-black text-purple-400">0 Pts</span>
+                    </div>
+                </div>
+
+                <!-- Created Rules List -->
+                <div class="space-y-1.5 text-left">
+                    <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                        Leyes Decretadas para la Convivencia:
+                    </span>
+                    <div id="final-rules-container" class="space-y-1.5">
+                        <!-- Injected -->
+                    </div>
+                </div>
+
+                <div class="pt-2 border-t border-slate-800 text-[10px] text-slate-400 flex justify-between items-center">
+                    <span>Validez: 5.º de Primaria</span>
+                    <span class="font-mono text-amber-400/80">★ REGLAMENTO APROBADO ★</span>
+                </div>
+            </div>
+
+            <!-- Actions (Mobile Share/Print/Restart) -->
+            <div class="no-print space-y-2">
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="copyToClipboard()" class="touch-btn py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 border border-slate-700">
+                        <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                        <span>Copiar Leyes</span>
+                    </button>
+                    <button onclick="window.print()" class="touch-btn py-3 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 border border-slate-700">
+                        <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+                        <span>Imprimir</span>
+                    </button>
+                </div>
+                <button onclick="resetGame()" class="touch-btn w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-black text-xs rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-purple-950/40">
+                    <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                    <span>VOLVER A JUGAR</span>
+                </button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Game Logic Scripts -->
+    <script>
+        // Global Game State
+        const state = {
+            name: "Estudiante",
+            avatar: "🧙‍♂️",
+            score: 0,
+            quizIndex: 0,
+            builder: {
+                verb: null,
+                action: null,
+                purpose: null
+            },
+            createdRules: []
+        };
+
+        const AVATARS = ["🧙‍♂️", "👩‍🎓", "🦁", "🦉", "🚀", "🛡️", "⭐", "🎨", "🤖", "🏆"];
+
+        // Quiz Question Dataset (Levels 1 to 3)
+        const QUIZ_DATA = [
+            // LEVEL 1: El Filtro Positivo
+            {
+                lvl: 1,
+                lvlTitle: "El Filtro Positivo",
+                instruction: "Nivel 1: Cambia la prohibición a una acción positiva",
+                question: "Transforma la regla negativa: '¡No empujes ni corras en los pasillos!'",
+                options: [
+                    { text: "Prohibido estrictamente correr en la escuela.", correct: false, note: "Sigue redactado en negativo. Enfócate en qué SÍ deben hacer." },
+                    { text: "Caminar con tranquilidad y mantener el orden en el pasillo.", correct: true, note: "¡Excelente! Expresa la conducta deseada en positivo." },
+                    { text: "No corran porque se pueden caer.", correct: false, note: "Aún contiene 'no'. Las reglas positivas no usan prohibición." }
+                ]
+            },
+            {
+                lvl: 1,
+                lvlTitle: "El Filtro Positivo",
+                instruction: "Nivel 1: Cambia la prohibición a una acción positiva",
+                question: "Transforma la regla: 'No gritar dentro del salón de clases.'",
+                options: [
+                    { text: "Usar un tono de voz adecuado para dialogar con los demás.", correct: true, note: "¡Perfecto! Nos dice exactamente la conducta correcta a seguir." },
+                    { text: "Evitar hacer ruido fuerte cuando habla la maestra.", correct: false, note: "Usar 'evitar' sigue siendo una redacción en negativo indirecto." },
+                    { text: "Si gritas tendrás una sanción en tu reporte.", correct: false, note: "Eso es un castigo o sanción, no la norma en sí." }
+                ]
+            },
+
+            // LEVEL 2: La Forja de Verbos Infinitivos
+            {
+                lvl: 2,
+                lvlTitle: "La Forja de Verbos",
+                instruction: "Nivel 2: Identifica verbos en infinitivo (-ar, -er, -ir)",
+                question: "¿Cuál opción inicia con un verbo en infinitivo correctamente?",
+                options: [
+                    { text: "Todos ponemos la basura en el bote.", correct: false, note: "'Ponemos' está conjugado. Debe ser impersonal (Infinitivo)." },
+                    { text: "Depositar la basura y residuos en sus contenedores.", correct: true, note: "¡Muy bien! 'Depositar' termina en -ar (infinitivo)." },
+                    { text: "Deben guardar sus empaques vacíos.", correct: false, note: "'Deben' está conjugado en presente." }
+                ]
+            },
+            {
+                lvl: 2,
+                lvlTitle: "La Forja de Verbos",
+                instruction: "Nivel 2: Identifica verbos en infinitivo (-ar, -er, -ir)",
+                question: "¿Cuál regla utiliza correctamente un verbo en infinitivo?",
+                options: [
+                    { text: "Respetar el turno de palabra levantando la mano.", correct: true, note: "¡Genial! 'Respetar' es un verbo en infinitivo (-ar)." },
+                    { text: "Respetamos las opiniones de los compañeros.", correct: false, note: "'Respetamos' está conjugado en primera persona." },
+                    { text: "Por favor, respeten cuando alguien habla.", correct: false, note: "'Respeten' es una orden imperativa, no un infinitivo." }
+                ]
+            },
+
+            // LEVEL 3: El Propósito de la Regla (Causa y Consecuencia)
+            {
+                lvl: 3,
+                lvlTitle: "El Propósito de la Regla",
+                instruction: "Nivel 3: Asigna la causa o propósito correcto",
+                question: "Completa la regla: 'Cuidar los materiales y mobiliario...'",
+                options: [
+                    { text: "...para que el salón permanezca bonito y útil para todos.", correct: true, note: "¡Excelente! Explica el beneficio comunitario del cuidado." },
+                    { text: "...porque si no nos van a cobrar las cosas.", correct: false, note: "El propósito no debe ser el miedo al cobro o castigo." },
+                    { text: "...para que no nos regañe el director.", correct: false, note: "El sentido debe ser la convivencia armónica, no evitar regaños." }
+                ]
+            },
+            {
+                lvl: 3,
+                lvlTitle: "El Propósito de la Regla",
+                instruction: "Nivel 3: Asigna la causa o propósito correcto",
+                question: "Completa la regla: 'Escuchar con atención a quien participa...'",
+                options: [
+                    { text: "...para aprender de sus ideas y mantener el respeto mutuo.", correct: true, note: "¡Exacto! Define el valor del respeto y el aprendizaje en equipo." },
+                    { text: "...solamente si es nuestro mejor amigo.", correct: false, note: "Las reglas del salón aplican por igual para todos los compañeros." },
+                    { text: "...para terminar rápido la clase e ir al recreo.", correct: false, note: "Aunque es importante el recreo, el fin principal es el respeto." }
+                ]
+            }
+        ];
+
+        // Builder Block Options
+        const BUILDER_BLOCKS = {
+            verbs: ["Respetar", "Escuchar", "Cuidar", "Depositar", "Mantener", "Levantar"],
+            actions: [
+                "el turno para hablar",
+                "los materiales del salón",
+                "la basura en los botes",
+                "las opiniones de todos",
+                "el espacio limpio y ordenado"
+            ],
+            purposes: [
+                "para convivir en paz y armonía.",
+                "para que todos aprendamos mejor.",
+                "para tener un aula limpia y segura.",
+                "para asegurar el respeto de todos."
+            ]
+        };
+
+        // Initialize App
+        window.addEventListener('DOMContentLoaded', () => {
+            renderAvatars();
+            lucide.createIcons();
+        });
+
+        function renderAvatars() {
+            const grid = document.getElementById('avatar-grid');
+            grid.innerHTML = AVATARS.map(av => `
+                <button type="button" onclick="selectAvatar('${av}')" class="avatar-btn text-xl p-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl transition ${av === state.avatar ? 'border-amber-400 bg-amber-500/15' : ''}">
+                    ${av}
+                </button>
+            `).join('');
+        }
+
+        function selectAvatar(av) {
+            snd.playTap();
+            state.avatar = av;
+            renderAvatars();
+        }
+
+        function startGame() {
+            snd.playTap();
+            const inputName = document.getElementById('player-input-name').value.trim();
+            if (inputName !== "") {
+                state.name = inputName;
+            }
+
+            document.getElementById('score-badge').classList.remove('hidden');
+            document.getElementById('score-badge').classList.add('flex');
+            
+            switchScreen('screen-quiz');
+            loadQuizQuestion();
+        }
+
+        function switchScreen(screenId) {
+            ['screen-welcome', 'screen-quiz', 'screen-builder', 'screen-summary'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            document.getElementById(screenId).classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function loadQuizQuestion() {
+            const q = QUIZ_DATA[state.quizIndex];
+            
+            document.getElementById('lvl-num').innerText = `NIVEL ${q.lvl} DE 3`;
+            document.getElementById('lvl-title').innerText = q.lvlTitle;
+            document.getElementById('quiz-instruction').innerText = q.instruction;
+            document.getElementById('quiz-question-text').innerText = q.question;
+
+            const total = QUIZ_DATA.length;
+            const current = state.quizIndex + 1;
+            document.getElementById('quiz-step-text').innerText = `${current} / ${total}`;
+            document.getElementById('quiz-progress-fill').style.width = `${(current / total) * 100}%`;
+
+            document.getElementById('quiz-feedback-box').classList.add('hidden');
+            document.getElementById('next-quiz-btn').classList.add('hidden');
+
+            const container = document.getElementById('quiz-options-list');
+            container.innerHTML = q.options.map((opt, idx) => `
+                <button onclick="handleAnswer(${idx})" class="quiz-btn w-full p-3 bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/80 rounded-xl text-left text-xs font-semibold text-slate-200 transition flex justify-between items-center group active:scale-95">
+                    <span class="pr-2">${opt.text}</span>
+                    <i data-lucide="chevron-right" class="w-4 h-4 text-slate-500 group-hover:text-purple-400 shrink-0"></i>
+                </button>
+            `).join('');
+
+            lucide.createIcons();
+        }
+
+        function handleAnswer(optIdx) {
+            const q = QUIZ_DATA[state.quizIndex];
+            const selected = q.options[optIdx];
+            const fbBox = document.getElementById('quiz-feedback-box');
+            const fbText = document.getElementById('fb-text');
+            const fbIcon = document.getElementById('fb-icon');
+
+            // Disable option buttons
+            const btns = document.querySelectorAll('.quiz-btn');
+            btns.forEach(b => b.disabled = true);
+
+            if (selected.correct) {
+                snd.playCorrect();
+                state.score += 20;
+                document.getElementById('score-val').innerText = state.score;
+
+                fbBox.className = "p-3 rounded-xl border text-xs font-semibold flex items-start gap-2.5 bg-emerald-500/10 border-emerald-500/30 text-emerald-300 animate-bounce-short";
+                fbIcon.setAttribute('data-lucide', 'check-circle-2');
+                fbText.innerHTML = `<strong>¡Correcto!</strong> ${selected.note}`;
+            } else {
+                snd.playWrong();
+                fbBox.className = "p-3 rounded-xl border text-xs font-semibold flex items-start gap-2.5 bg-rose-500/10 border-rose-500/30 text-rose-300 animate-bounce-short";
+                fbIcon.setAttribute('data-lucide', 'alert-circle');
+                fbText.innerHTML = `<strong>Reflexiona:</strong> ${selected.note}`;
+            }
+
+            fbBox.classList.remove('hidden');
+            document.getElementById('next-quiz-btn').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function nextQuestion() {
+            snd.playTap();
+            state.quizIndex++;
+            if (state.quizIndex < QUIZ_DATA.length) {
+                loadQuizQuestion();
+            } else {
+                // Quiz completed -> Go to Builder Level 4
+                initBuilderLevel();
+                switchScreen('screen-builder');
+            }
+        }
+
+        // LEVEL 4: BUILDER LOGIC
+        function initBuilderLevel() {
+            renderBuilderPills('builder-verbs', BUILDER_BLOCKS.verbs, 'verb');
+            renderBuilderPills('builder-actions', BUILDER_BLOCKS.actions, 'action');
+            renderBuilderPills('builder-purposes', BUILDER_BLOCKS.purposes, 'purpose');
+            updateBuilderPreview();
+        }
+
+        function renderBuilderPills(containerId, items, type) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = items.map(item => `
+                <button onclick="selectBlock('${type}', '${item.replace(/'/g, "\\'")}')" 
+                    class="block-btn-${type} shrink-0 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-xs font-semibold text-slate-300 active:scale-95 transition">
+                    ${item}
+                </button>
+            `).join('');
+        }
+
+        function selectBlock(type, value) {
+            snd.playTap();
+            state.builder[type] = value;
+
+            // Update styling
+            const btns = document.querySelectorAll(`.block-btn-${type}`);
+            btns.forEach(b => {
+                if (b.innerText.trim() === value) {
+                    b.className = `block-btn-${type} shrink-0 px-3 py-2 bg-purple-600 border border-purple-400 rounded-lg text-xs font-bold text-white transition shadow-sm`;
+                } else {
+                    b.className = `block-btn-${type} shrink-0 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-xs font-semibold text-slate-300 active:scale-95 transition`;
+                }
+            });
+
+            updateBuilderPreview();
+        }
+
+        function updateBuilderPreview() {
+            const { verb, action, purpose } = state.builder;
+            const preview = document.getElementById('builder-preview');
+            const addBtn = document.getElementById('add-rule-btn');
+
+            if (verb && action && purpose) {
+                preview.innerText = `"${verb} ${action} ${purpose}"`;
+                preview.className = "text-xs font-bold text-amber-300 leading-snug";
+                addBtn.disabled = false;
+                addBtn.className = "touch-btn flex-1 py-2.5 px-3 bg-gradient-to-r from-amber-500 to-purple-600 hover:from-amber-400 hover:to-purple-500 text-slate-950 font-black text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-md cursor-pointer";
+            } else {
+                preview.innerText = "Selecciona un verbo, una acción y un propósito.";
+                preview.className = "text-xs font-medium text-slate-500 italic";
+                addBtn.disabled = true;
+                addBtn.className = "touch-btn flex-1 py-2.5 px-3 bg-gradient-to-r from-amber-500 to-purple-600 opacity-50 cursor-not-allowed text-slate-950 font-black text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-md";
+            }
+        }
+
+        function saveCreatedRule() {
+            const { verb, action, purpose } = state.builder;
+            if (!verb || !action || !purpose) return;
+
+            snd.playCorrect();
+            const ruleText = `${verb} ${action} ${purpose}`;
+            state.createdRules.push(ruleText);
+
+            state.score += 25;
+            document.getElementById('score-val').innerText = state.score;
+
+            // Reset selection
+            state.builder = { verb: null, action: null, purpose: null };
+            initBuilderLevel();
+
+            const count = state.createdRules.length;
+            document.getElementById('saved-count').innerText = count;
+
+            if (count >= 3) {
+                document.getElementById('finish-game-btn').classList.remove('hidden');
+            }
+        }
+
+        function showFinalResults() {
+            snd.playVictory();
+            confetti({
+                particleCount: 80,
+                spread: 60,
+                origin: { y: 0.6 }
+            });
+
+            document.getElementById('final-avatar').innerText = state.avatar;
+            document.getElementById('final-name').innerText = state.name;
+            document.getElementById('final-score').innerText = `${state.score} Pts`;
+
+            const container = document.getElementById('final-rules-container');
+            container.innerHTML = state.createdRules.map((rule, idx) => `
+                <div class="p-2 bg-slate-950 border border-slate-800 rounded-lg text-xs font-semibold text-slate-200 flex items-start gap-2">
+                    <span class="w-4 h-4 bg-purple-500/20 text-purple-300 rounded text-[10px] flex items-center justify-center shrink-0 font-bold mt-0.5">${idx + 1}</span>
+                    <span>${rule}</span>
+                </div>
+            `).join('');
+
+            switchScreen('screen-summary');
+        }
+
+        function copyToClipboard() {
+            snd.playTap();
+            const text = `CONSTITUCIÓN DEL AULA (Autor: ${state.name})\n\n` + 
+                state.createdRules.map((r, i) => `${i + 1}. ${r}`).join('\n');
+
+            const temp = document.createElement('textarea');
+            temp.value = text;
+            document.body.appendChild(temp);
+            temp.select();
+            document.execCommand('copy');
+            document.body.removeChild(temp);
+
+            alert('¡Leyes copiado con éxito al portapapeles!');
+        }
+
+        function toggleAudio() {
+            snd.muted = !snd.muted;
+            const btn = document.getElementById('sound-btn');
+            btn.innerHTML = snd.muted ? `<i data-lucide="volume-x" class="w-4 h-4 text-rose-400"></i>` : `<i data-lucide="volume-2" class="w-4 h-4"></i>`;
+            lucide.createIcons();
+        }
+
+        function confirmReset() {
+            if (confirm("¿Deseas reiniciar el juego? Se perderá tu progreso actual.")) {
+                resetGame();
+            }
+        }
+
+        function resetGame() {
+            state.score = 0;
+            state.quizIndex = 0;
+            state.createdRules = [];
+            state.builder = { verb: null, action: null, purpose: null };
+            document.getElementById('score-val').innerText = '0';
+            document.getElementById('saved-count').innerText = '0';
+            switchScreen('screen-welcome');
+        }
+    </script>
+</body>
+</html>
